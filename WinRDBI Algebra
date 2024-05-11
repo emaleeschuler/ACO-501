@@ -1,0 +1,106 @@
+% Emalee Schuler !
+
+% 1) Top 5 Rated CDs from Los Angeles Recording Labels in 2003
+
+% Select the CDs ratings between 1 and 5 for the year 2003
+top5CDs :=
+     project cdCode, year (
+          select year=2003 and rating >=1 and rating <=5 (topCDs)
+     );
+
+% Select recording labels located in LA
+laRecordingLabels :=
+     project labelID, labelName (
+          select location='Los Angeles' (recordingLabel)
+     );
+
+% Join the top 5 CDs with Los Angeles recording labels
+top5CDs_LA :=
+     top5CDs njoin laRecordingLabels;
+
+% Join the resulting CDs witht the CD relation
+result :=
+     project cdCode, cdTitle, labelName, numberSold (
+          top5CDs_LA njoin cd
+     );
+
+
+% 2) Which songs appeared on the best-selling (max number of CDs sold) CDs published in 2003? (songCode, songTitle)
+% Find all CDs from 2003 and their sales numbers
+cds2003 := 
+    project cdCode, numberSold (
+        select (year = 2003) (cd)
+    );
+
+% Filter for the best-selling CDs, assuming a threshold for the best sellers
+% Here, 790000 is used as an example threshold for the best-selling CDs
+bestSellingCDs2003 := 
+    select (numberSold >= 790000) (cds2003);
+
+% Join these CDs with the composedOf relation to find associated songs
+bestSellingCDsSongs := 
+    bestSellingCDs2003 njoin composedOf;
+
+% Get the details of the songs on the best-selling CDs
+songsOnBestSellingCDs := 
+    project songTitle, songCode (
+        bestSellingCDsSongs njoin song
+    );
+testJoin :=
+    project (songCode, songTitle) (
+        checkBestSellingCDsSongs njoin checkSongs
+    );
+
+% 3) List names of artists that are song writers and have never had a song receive a top 5 rating. (artistID, firstName, lastName)
+% Find all songwriters
+allSongWriters :=
+    project artistID (
+        writtenBy
+    );
+
+% Find songs with a top 5 rating
+top5Songs :=
+    project songCode (
+        select (rating <= 5) (topSongs)
+    );
+
+% Find artists who have written top 5 rated songs
+top5SongWriters :=
+    project artistID (
+        top5Songs njoin writtenBy
+    );
+
+% Subtract top 5 songwriters from all songwriters to get songwriters without a top 5 song
+songWritersNoTop5 :=
+    allSongWriters difference top5SongWriters;
+
+% Get the details of these songwriters
+artistsNoTop5 :=
+    project artistID, firstName, lastName (
+        songWritersNoTop5 njoin artist
+    );
+% Verify the structure and content of 'allSongWriters'
+checkAllSongWriters :=
+    project (artistID) (
+        allSongWriters
+    );
+
+% 4) List the artists that have been a member of more than one group. (artistID, firstName, lastName)
+% Join the artist and membership information with the musical group
+artistMemberJoin :=
+    artist â¨ member;
+
+groupJoin :=
+    artistMemberJoin â¨ musicalGroup;
+
+% Project the necessary attributes: artistID, groupCode, firstName, lastName
+artistIDgroupCodes :=
+    Ï€_{artistID, groupCode, firstName, lastName}(groupJoin);
+
+% Filter out artists who are members of only one group
+artistsWithMultipleGroups :=
+    Ï€_{artistID} (Î´_{artistID} (groupJoin â¨ groupJoin));
+
+% Extract unique artist details based on artistIDs of artists in multiple groups
+finalArtistDetails :=
+    Ï€_{artistID, firstName, lastName} (artistsWithMultipleGroups â¨ artist);
